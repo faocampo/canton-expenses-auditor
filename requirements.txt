@@ -1,0 +1,15 @@
+streamlit
+pandas
+numpy
+matplotlib
+#textract
+pyPDF2
+antiword
+six >= 1.16.0
+python-dateutil
+pytz
+pyyaml
+openpyxl
+requests
+beautifulsoup4
+pytest

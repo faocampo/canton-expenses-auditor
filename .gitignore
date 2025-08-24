@@ -205,3 +205,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+.DS_Store
+
+
+#Excel, PDF and Doc files
+*.xlsx
+*.xls
+*.pdf
+*.doc
+*.docx
