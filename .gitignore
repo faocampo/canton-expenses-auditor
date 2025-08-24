@@ -214,3 +214,4 @@ __marimo__/
 *.pdf
 *.doc
 *.docx
+output/consolidado.csv

@@ -1,6 +1,7 @@
 # Methodology: Clean Architecture – application use case orchestration
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -10,6 +11,8 @@ from ..domain.models import (
     mark_quality_observations,
 )
 from ..infrastructure.excel import extract_from_workbook
+
+logger = logging.getLogger("pipeline.application.use_case")
 
 
 def _filter_rows_by_year(rows: List[ExtractedRow], from_year: Optional[int], to_year: Optional[int]) -> List[ExtractedRow]:
@@ -46,6 +49,7 @@ def consolidate(
         from ..domain.models import parse_month_year_from_filename
 
         ym = parse_month_year_from_filename(f.name)
+        logger.debug("Procesando archivo: %s (ym_inferido=%s)", f, ym)
         part = extract_from_workbook(
             xlsx_path=f,
             fx=fx,
@@ -54,14 +58,17 @@ def consolidate(
             rate_limit_s=rate_limit,
             cache=cache,
         )
+        logger.debug("Archivo %s produjo %d filas", f.name, len(part))
         all_rows.extend(part)
 
     if not all_rows:
         return []
 
+    logger.debug("Marcando observaciones de calidad sobre %d filas", len(all_rows))
     mark_quality_observations(all_rows)
 
     filtered = _filter_rows_by_year(all_rows, from_year, to_year)
+    logger.debug("Filtrado por año (%s-%s): %d -> %d filas", from_year, to_year, len(all_rows), len(filtered))
 
     # Convert to CSV rows in a deterministic schema
     return [r.to_csv_row() for r in filtered]

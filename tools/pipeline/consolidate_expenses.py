@@ -39,7 +39,6 @@ from bs4 import BeautifulSoup
 
 # -------------------------- Logging --------------------------
 logger = logging.getLogger("consolidate_expenses")
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 # -------------------------- Constants --------------------------
 SHEET_TARGET = "gastos del mes"
