@@ -209,9 +209,5 @@ __marimo__/
 
 
 #Excel, PDF and Doc files
-*.xlsx
-*.xls
-*.pdf
-*.doc
-*.docx
-output/consolidado.csv
+expenses/
+run_tests.sh
