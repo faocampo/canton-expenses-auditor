@@ -138,6 +138,19 @@ def normalize_text(s: str) -> str:
 
 
 def parse_ars_number(value: object) -> Optional[float]:
+    """
+    Parse an object as an ARS (Argentine Peso) number.
+
+    Allows for several formats:
+    - "1.234,56"
+    - "1 234,56"
+    - 1234.56
+    - 1234
+
+    Returns a float or None if the input is not parsable.
+
+    NaN (Not a Number) inputs are also accepted and returned as None.
+    """
     # Numeric inputs: return as-is (guard NaN)
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return None
@@ -161,12 +174,24 @@ def parse_ars_number(value: object) -> Optional[float]:
 
 def parse_cuit_from_payee(payee: object) -> Tuple[str, Optional[str]]:
     name = str(payee or "").strip()
+    # First, try to find CUIT directly in the original string to preserve casing/spacing for name cleanup
+    m_orig = CUIT_REGEX.search(name)
+    if m_orig:
+        parts = (m_orig.group(1), m_orig.group(2), m_orig.group(3))
+        normalized = f"{parts[0]}-{parts[1]}-{parts[2]}"
+        # Remove the CUIT substring from the name and any nearby CUIT label noise
+        cleaned = CUIT_REGEX.sub("", name)
+        cleaned = re.sub(r"\bCUIT\b[: ]*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = " ".join(cleaned.split())
+        return cleaned, normalized
+    # Fallback: search in normalized text (e.g., if accents or varied separators were used)
     text = normalize_text(name)
     m = CUIT_REGEX.search(text)
     if not m:
         return name, None
     parts = (m.group(1), m.group(2), m.group(3))
     normalized = f"{parts[0]}-{parts[1]}-{parts[2]}"
+    # If CUIT only found in normalized text, just return original name unchanged
     return name, normalized
 
 
@@ -192,6 +217,10 @@ def normalize_date_ddmmyyyy(raw: object, fallback_from_file: Optional[Tuple[int,
 
 
 def detect_rubro(categoria: str, subcat: str, memo: str) -> str:
+    # Prefer the explicit subcategory label when present
+    if (subcat or "").strip() and not is_total_marker(subcat):
+        return (subcat or "").strip()
+    # Otherwise, use keyword-based detection on category/memo
     blob = normalize_text(" ".join([categoria or "", subcat or "", memo or ""]))
     for kw, rubro in RUBRO_KEYWORDS:
         if kw in blob:

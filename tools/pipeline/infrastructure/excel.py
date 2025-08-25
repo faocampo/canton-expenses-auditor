@@ -62,6 +62,20 @@ def extract_from_workbook(
     rate_limit_s: float,
     cache: Dict[str, str],
 ) -> List[ExtractedRow]:
+    """
+    Extracts data from the Excel file named by `xlsx_path`.
+
+    Args:
+        xlsx_path (Path): The path to the Excel file.
+        fx (FxSeries): The exchange rate series.
+        y_m_from_name (Optional[Tuple[int, int]]): The year-month from the name of the file.
+        enrich (bool): Whether to enrich the data with additional information.
+        rate_limit_s (float): The rate limit for API calls (if any).
+        cache (Dict[str, str]): The cache for already-enriched CUITs.
+
+    Returns:
+        List[ExtractedRow]: The extracted rows.
+    """
     sheet_name = find_target_sheet(xlsx_path)
     if not sheet_name:
         logger.warning("No se encontró hoja en %s", xlsx_path.name)
@@ -75,6 +89,42 @@ def extract_from_workbook(
     except Exception as e:
         logger.warning("Error leyendo %s/%s: %s", xlsx_path.name, sheet_name, e)
         return []
+
+    # --- Helpers -----------------------------------------------------------
+    def _cell_to_str(x: object) -> str:
+        """Return trimmed string for a cell, or empty string if None/NaN."""
+        if x is None:
+            return ""
+        if isinstance(x, float) and pd.isna(x):
+            return ""
+        return str(x).strip()
+
+    def _normalize_text(s: str) -> str:
+        import re as _re
+        import unicodedata as _ud
+
+        nk = _ud.normalize("NFKD", s or "")
+        s2 = "".join(ch for ch in nk if not _ud.combining(ch))
+        return _re.sub(r"\s+", " ", s2.strip().lower())
+
+    HEADER_TOKENS = {
+        "categoria", "categoría", "subcategoria", "sub-categoria", "sub-subcategoria", "sub subcategoria",
+        "tipo", "type", "fecha", "num", "n°", "numero", "número", "acreedor", "name", "proveedor",
+        "memo", "descripcion", "descripción", "detalle", "importe", "monto", "amount", "codigo", "código", "code",
+    }
+
+    def _is_header_row(values: List[object]) -> bool:
+        # Count how many header-like tokens appear across the row
+        score = 0
+        for v in values:
+            nv = _normalize_text(_cell_to_str(v))
+            if not nv:
+                continue
+            for tok in HEADER_TOKENS:
+                if tok in nv:
+                    score += 1
+                    break
+        return score >= 3
 
     rows: List[ExtractedRow] = []
     last_cat = last_sub = last_subsub = ""
@@ -94,24 +144,32 @@ def extract_from_workbook(
         I = df.iat[idx, 8] if df.shape[1] > 8 else None
         J = df.iat[idx, 9] if df.shape[1] > 9 else None
 
-        # Skip empty lines quickly
-        if all((x is None or (isinstance(x, float) and pd.isna(x)) or str(x).strip() == "") for x in [B, C, D, E, F, G, H, I, J]):
+        # Skip header-like rows
+        if _is_header_row([B, C, D, E, F, G, H, I, J]):
+            logger.debug("Fila %d: encabezado detectado; se omite", idx)
+            continue
+
+        # Skip empty lines quickly (after header check)
+        if all(_cell_to_str(x) == "" for x in [B, C, D, E, F, G, H, I, J]):
             empty_skips += 1
             continue
 
         # Carry-forward categories
-        if isinstance(B, str) and B.strip():
-            new_cat = str(B).strip()
+        b_str = _cell_to_str(B)
+        if b_str:
+            new_cat = b_str
             if new_cat != last_cat:
                 logger.debug("Fila %d: categoría -> %s", idx, new_cat)
             last_cat = new_cat
-        if isinstance(C, str) and C.strip() and not is_total_marker(C):
-            new_sub = str(C).strip()
+        c_str = _cell_to_str(C)
+        if c_str and not is_total_marker(c_str):
+            new_sub = c_str
             if new_sub != last_sub:
                 logger.debug("Fila %d: subcategoría -> %s", idx, new_sub)
             last_sub = new_sub
-        if isinstance(D, str) and D.strip() and not is_total_marker(D):
-            new_subsub = str(D).strip()
+        d_str = _cell_to_str(D)
+        if d_str and not is_total_marker(d_str):
+            new_subsub = d_str
             if new_subsub != last_subsub:
                 logger.debug("Fila %d: sub-subcategoría -> %s", idx, new_subsub)
             last_subsub = new_subsub
@@ -125,10 +183,10 @@ def extract_from_workbook(
         categoria = last_cat
         subcat = last_sub
         subsub = last_subsub
-        tipo_gasto = str(E or "").strip()
-        codigo = str(G or "").strip()
-        payee_name, cuit_norm = parse_cuit_from_payee(H)
-        memo = str(I or "").strip()
+        tipo_gasto = _cell_to_str(E)
+        codigo = _cell_to_str(G)
+        payee_name, cuit_norm = parse_cuit_from_payee(_cell_to_str(H))
+        memo = _cell_to_str(I)
         monto_ars = parse_ars_number(J)
 
         # Skip rows lacking core fields

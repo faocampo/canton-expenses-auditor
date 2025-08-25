@@ -14,9 +14,12 @@ def _build_sample_xlsx(path: Path) -> None:
     # Build a DataFrame mimicking columns B..J at indices 1..9 (we'll leave col A empty)
     # Row: B(cat), C(sub), D(sub2), E(tipo), F(fecha), G(codigo), H(acreedor+CUIT), I(memo), J(importe)
     data = [
-        [None, "Categoría", "Subcat", "Subsub", "Operativo", "15/01/2024", "001", "Proveedor SA CUIT 30-12345678-9", "Servicio mensual", "1.000,00"],
+        [None, " A-Intendencia y Administración", "Bienes de uso", None, "Bill", "23/12/2024", "C0000200000202", "Corti Oscar Alberto 20-26395374-7", "Transfer - Para reemplazo de computadoras de porticos y puestos de trabajo que presentan deterio...", "453.336"],
+        [None, " A-Intendencia y Administración", "Bienes de uso", None, "Credit", "23/12/2024", "NCC0000200000003", "Corti Oscar Alberto 20-26395374-7", "Aplica a la fc 202. Error de imputación.", "-453.336"],
+        [None, " A-Intendencia y Administración", "Bienes de uso", None, "Bill", "23/12/2024", "C0000200000203", "Corti Oscar Alberto 20-26395374-7", "Transfer - Para reemplazo de computadoras de porticos y puestos de trabajo que presentan deterio...", "450.640"],
         [None, "Total", None, None, None, None, None, None, None, None],  # total row to be ignored
     ]
+   	 
     df = pd.DataFrame(data)
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="Gastos del Mes", index=False, header=False)
@@ -26,7 +29,7 @@ def test_extract_from_workbook_parses_basic_fields(tmp_path):
     xlsx = tmp_path / "sample.xlsx"
     _build_sample_xlsx(xlsx)
 
-    fx = FxSeries(dates=[date(2024, 1, 15)], values=[1000.0])
+    fx = FxSeries(dates=[date(2024, 12, 23)], values=[1000.0])
 
     rows = extract_from_workbook(
         xlsx_path=xlsx,
@@ -37,9 +40,48 @@ def test_extract_from_workbook_parses_basic_fields(tmp_path):
         cache={},
     )
 
-    assert len(rows) == 1
+    assert len(rows) == 3
     r = rows[0]
-    assert r.id_acreedor == "30-12345678-9"
-    assert r.monto_ars == 1000.0
-    assert r.monto_usd == 1.0
-    assert r.fecha == date(2024, 1, 15)
+    assert r.id_acreedor == "20-26395374-7"
+    assert r.monto_ars == 453336
+    assert r.monto_usd == 453336 / 1000.0
+    assert r.fecha == date(2024, 12, 23)
+    assert r.tipo_gasto == "Bill"
+    assert r.tipo_cambio == 1000.0
+    assert r.rubro == "Bienes de uso"
+    assert r.categoria == "A-Intendencia y Administración"
+    assert r.subcategoria == "Bienes de uso"
+    assert r.subsubcategoria == ""
+    assert r.codigo == "C0000200000202"
+    assert r.acreedor == "Corti Oscar Alberto"
+    assert r.descripcion == "Transfer - Para reemplazo de computadoras de porticos y puestos de trabajo que presentan deterio..."
+    
+    r = rows[1]
+    assert r.id_acreedor == "20-26395374-7"
+    assert r.monto_ars == -453336
+    assert r.monto_usd == -453336 / 1000.0
+    assert r.fecha == date(2024, 12, 23)
+    assert r.tipo_gasto == "Credit"
+    assert r.tipo_cambio == 1000.0
+    assert r.rubro == "Bienes de uso"
+    assert r.categoria == "A-Intendencia y Administración"
+    assert r.subcategoria == "Bienes de uso"
+    assert r.subsubcategoria == ""
+    assert r.codigo == "NCC0000200000003"
+    assert r.acreedor == "Corti Oscar Alberto"
+    assert r.descripcion == "Aplica a la fc 202. Error de imputación."
+
+    r = rows[2]
+    assert r.id_acreedor == "20-26395374-7"
+    assert r.monto_ars == 450640
+    assert r.monto_usd == 450640 / 1000.0
+    assert r.fecha == date(2024, 12, 23)
+    assert r.tipo_gasto == "Bill"
+    assert r.tipo_cambio == 1000.0
+    assert r.rubro == "Bienes de uso"
+    assert r.categoria == "A-Intendencia y Administración"
+    assert r.subcategoria == "Bienes de uso"
+    assert r.subsubcategoria == ""
+    assert r.codigo == "C0000200000203"
+    assert r.acreedor == "Corti Oscar Alberto"
+    assert r.descripcion == "Transfer - Para reemplazo de computadoras de porticos y puestos de trabajo que presentan deterio..."
