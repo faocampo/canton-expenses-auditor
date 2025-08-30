@@ -134,3 +134,32 @@ Fecha,código,Categoría,Sub-categoría,Sub-sub-categoría,rubro,acreedor,ID acr
 Si el parámetro `append` no se especifica, se genera un archivo CSV nuevo con el nombre **"Gastos\_Consolidados\_[from_year]-[to_year].csv"**.
 
 Si el parámetro `append` se especifica, se agrega la informacion consolidada de gastos actual al archivo CSV previo sin la fila de encabezados.
+
+
+## 8) Crea los scripts bash para ejecutar el programa y los tests.
+
+### Script de ejecución del programa
+
+El script se llama **"run_program.sh"** y debe:
+
+* Crear/activar un entorno virtual Python.
+* Instalar las dependencias del proyecto.
+* Ejecutar el programa con los parámetros proporcionados.
+
+### Script de ejecución de tests
+
+El script se llama **"run_tests.sh"** y debe:
+
+* Crear/activar un entorno virtual Python.
+* Instalar las dependencias del proyecto.
+* Ejecutar los tests con los parámetros proporcionados.
+
+### Ejemplo de uso
+
+```bash
+./run_program.sh --inputs expenses --fx "docs/Info Financiera - Tipo de cambio USD-ARS.csv" --from-year 2020 --to-year 2025 --output output/consolidado_expensas_canton_2020-2025.csv --debug
+```
+
+```bash
+./run_tests.sh
+```

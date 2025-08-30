@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from ..application.use_case import consolidate
+from ..application.expenses_consolidator import consolidate
 from ..infrastructure.fx_loader import load_fx_series
 from .io import collect_input_files, write_output_rows
 
